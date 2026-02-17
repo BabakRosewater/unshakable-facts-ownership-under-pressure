@@ -821,3 +821,33 @@ We will verify facts, document proof, set cadence, and protect trust.
 Next update time is ___.”
 
 ---
+
+
+---
+
+## Full-Stack UF Training App (Option B)
+
+This repository now includes a runnable full-stack application built with Python standard library + SQLite.
+
+### Features
+- User management (create/list users)
+- 32-module completion tracking per user
+- Certification scoring history (scenario + score + notes)
+- Progress summary and average scoring analytics
+
+### Run locally
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+Open: `http://127.0.0.1:8000`
+
+### API endpoints
+- `GET /api/users`
+- `POST /api/users`
+- `POST /api/progress`
+- `GET /api/progress/{user_id}`
+- `POST /api/scores`
+- `GET /api/scores/{user_id}`
