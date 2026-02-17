@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Unshakable Facts — Training Tracker</title>
+  <meta name="color-scheme" content="dark light"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    html,body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+  <div class="mx-auto max-w-6xl p-4 md:p-8">
+    <header class="mb-6">
+      <h1 class="text-2xl md:text-3xl font-extrabold">Unshakable Facts: Ownership Under Pressure</h1>
+      <p class="text-slate-300 mt-2">Training tracker (Users • Modules 1–32 • Scores). Same language. Same standard.</p>
+    </header>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <section class="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <h2 class="font-bold text-lg">Create User</h2>
+        <div class="mt-3 flex gap-2">
+          <input id="newName" class="flex-1 px-3 py-2 rounded-xl bg-slate-950/50 border border-white/10 focus:outline-none focus:border-white/20"
+            placeholder="Name (e.g., Sarah Weed)"/>
+          <button id="btnCreateUser" class="px-4 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/15 hover:border-white/20 transition">
+            Create
+          </button>
+        </div>
+        <div id="createStatus" class="text-xs text-slate-300 mt-2"></div>
+      </section>
+
+      <section class="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <h2 class="font-bold text-lg">Select User</h2>
+        <div class="mt-3 flex gap-2">
+          <select id="userSelect" class="flex-1 px-3 py-2 rounded-xl bg-slate-950/50 border border-white/10 focus:outline-none focus:border-white/20"></select>
+          <button id="btnRefresh" class="px-4 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/15 hover:border-white/20 transition">
+            Refresh
+          </button>
+        </div>
+        <div id="userStatus" class="text-xs text-slate-300 mt-2"></div>
+      </section>
+    </div>
+
+    <div class="grid lg:grid-cols-[1.2fr_.8fr] gap-4 mt-4">
+      <section class="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="font-bold text-lg">Module Progress (1–32)</h2>
+          <div class="text-xs text-slate-300" id="progressMeta"></div>
+        </div>
+
+        <div id="progressGrid" class="mt-4 grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2"></div>
+        <div class="text-xs text-slate-300 mt-3" id="progressStatus"></div>
+      </section>
+
+      <section class="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <h2 class="font-bold text-lg">Certification / Role-play Scores</h2>
+
+        <div class="mt-3 space-y-2">
+          <input id="scenario" class="w-full px-3 py-2 rounded-xl bg-slate-950/50 border border-white/10 focus:outline-none focus:border-white/20"
+            placeholder="Scenario (e.g., UF5 ownership drill)"/>
+          <div class="flex gap-2">
+            <select id="score" class="w-28 px-3 py-2 rounded-xl bg-slate-950/50 border border-white/10 focus:outline-none focus:border-white/20">
+              <option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option>
+            </select>
+            <input id="notes" class="flex-1 px-3 py-2 rounded-xl bg-slate-950/50 border border-white/10 focus:outline-none focus:border-white/20"
+              placeholder="Notes (optional)"/>
+          </div>
+
+          <button id="btnAddScore" class="w-full px-4 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/15 hover:border-white/20 transition">
+            Add Score
+          </button>
+
+          <div class="text-xs text-slate-300" id="scoreStatus"></div>
+        </div>
+
+        <div class="mt-4">
+          <div class="text-xs text-slate-300" id="scoreSummary"></div>
+          <div class="mt-2 max-h-80 overflow-auto rounded-xl border border-white/10">
+            <table class="w-full text-sm">
+              <thead class="text-xs text-slate-300 bg-white/5 sticky top-0">
+                <tr>
+                  <th class="text-left p-2">When</th>
+                  <th class="text-left p-2">Scenario</th>
+                  <th class="text-left p-2">Score</th>
+                </tr>
+              </thead>
+              <tbody id="scoreTable" class="divide-y divide-white/10"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="mt-6 text-xs text-slate-400">
+      API: <code>/api/users</code>, <code>/api/progress</code>, <code>/api/progress/:user_id</code>, <code>/api/scores</code>, <code>/api/scores/:user_id</code>
+    </footer>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  let currentUserId = null;
+
+  async function api(url, opts) {
+    const res = await fetch(url, {
+      headers: { "Content-Type": "application/json" },
+      ...opts
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) {
+      const msg = data.error || `Request failed (${res.status})`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  async function loadUsers(selectUserId = null) {
+    $("userStatus").textContent = "Loading users…";
+    const data = await api("/api/users", { method: "GET" });
+    const users = data.users || [];
+
+    $("userSelect").innerHTML = users.length
+      ? users.map(u => `<option value="${u.id}">${u.name} (#${u.id})</option>`).join("")
+      : `<option value="">No users yet</option>`;
+
+    const idToUse = selectUserId || (users[0]?.id ?? null);
+    currentUserId = idToUse ? Number(idToUse) : null;
+
+    if (currentUserId) $("userSelect").value = String(currentUserId);
+    $("userStatus").textContent = users.length ? `Loaded ${users.length} users.` : "Create your first user.";
+  }
+
+  function renderProgress(modules) {
+    const completedCount = modules.filter(m => Number(m.completed) === 1).length;
+    $("progressMeta").textContent = currentUserId ? `User #${currentUserId} • Completed ${completedCount}/32` : "";
+
+    $("progressGrid").innerHTML = modules.map(m => {
+      const done = Number(m.completed) === 1;
+      return `
+        <button
+          class="modBtn px-2 py-2 rounded-xl border ${done ? "bg-emerald-500/15 border-emerald-500/30" : "bg-white/5 border-white/10"}
+                 hover:border-white/20 hover:bg-white/10 transition text-center"
+          data-module="${m.module_number}"
+          data-completed="${done ? "1" : "0"}"
+          title="${done ? "Completed" : "Not completed"}"
+        >
+          <div class="font-bold">${m.module_number}</div>
+          <div class="text-[10px] text-slate-300">${done ? "Done" : "Open"}</div>
+        </button>
+      `;
+    }).join("");
+
+    document.querySelectorAll(".modBtn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!currentUserId) return;
+        const module_number = Number(btn.getAttribute("data-module"));
+        const completed = btn.getAttribute("data-completed") !== "1";
+        $("progressStatus").textContent = "Saving…";
+        try {
+          await api("/api/progress", {
+            method: "POST",
+            body: JSON.stringify({ user_id: currentUserId, module_number, completed })
+          });
+          await loadProgress();
+          $("progressStatus").textContent = "Saved.";
+          setTimeout(() => $("progressStatus").textContent = "", 800);
+        } catch (e) {
+          $("progressStatus").textContent = e.message;
+        }
+      });
+    });
+  }
+
+  async function loadProgress() {
+    if (!currentUserId) return;
+    const data = await api(`/api/progress/${currentUserId}`, { method: "GET" });
+    renderProgress(data.modules || []);
+  }
+
+  function renderScores(payload) {
+    const summary = payload.summary || {};
+    $("scoreSummary").textContent =
+      `Count: ${summary.count ?? 0} • Avg: ${summary.avg_score ?? "—"} • Last: ${summary.last_at ?? "—"}`;
+
+    const rows = (payload.scores || []).map(s => `
+      <tr>
+        <td class="p-2 text-xs text-slate-300">${s.created_at}</td>
+        <td class="p-2">${escapeHtml(s.scenario)}</td>
+        <td class="p-2 font-bold">${s.score}</td>
+      </tr>
+      ${s.notes ? `<tr><td></td><td class="p-2 text-xs text-slate-400" colspan="2">Notes: ${escapeHtml(s.notes)}</td></tr>` : ""}
+    `).join("");
+
+    $("scoreTable").innerHTML = rows || `<tr><td class="p-3 text-slate-300" colspan="3">No scores yet.</td></tr>`;
+  }
+
+  async function loadScores() {
+    if (!currentUserId) return;
+    const data = await api(`/api/scores/${currentUserId}`, { method: "GET" });
+    renderScores(data);
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (m) => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+
+  $("btnCreateUser").addEventListener("click", async () => {
+    $("createStatus").textContent = "";
+    const name = $("newName").value.trim();
+    if (!name) { $("createStatus").textContent = "Enter a name."; return; }
+
+    $("createStatus").textContent = "Creating…";
+    try {
+      const data = await api("/api/users", { method: "POST", body: JSON.stringify({ name }) });
+      $("newName").value = "";
+      await loadUsers(data.user.id);
+      await loadProgress();
+      await loadScores();
+      $("createStatus").textContent = "User created.";
+      setTimeout(() => $("createStatus").textContent = "", 1200);
+    } catch (e) {
+      $("createStatus").textContent = e.message;
+    }
+  });
+
+  $("btnRefresh").addEventListener("click", async () => {
+    await loadUsers(currentUserId);
+    if (currentUserId) {
+      await loadProgress();
+      await loadScores();
+    }
+  });
+
+  $("userSelect").addEventListener("change", async (e) => {
+    const val = e.target.value;
+    currentUserId = val ? Number(val) : null;
+    if (currentUserId) {
+      await loadProgress();
+      await loadScores();
+    }
+  });
+
+  $("btnAddScore").addEventListener("click", async () => {
+    $("scoreStatus").textContent = "";
+    if (!currentUserId) { $("scoreStatus").textContent = "Select a user."; return; }
+
+    const scenario = $("scenario").value.trim();
+    const score = Number($("score").value);
+    const notes = $("notes").value.trim();
+
+    if (!scenario) { $("scoreStatus").textContent = "Scenario is required."; return; }
+
+    $("scoreStatus").textContent = "Saving…";
+    try {
+      await api("/api/scores", {
+        method: "POST",
+        body: JSON.stringify({ user_id: currentUserId, scenario, score, notes })
+      });
+      $("scenario").value = "";
+      $("notes").value = "";
+      await loadScores();
+      $("scoreStatus").textContent = "Saved.";
+      setTimeout(() => $("scoreStatus").textContent = "", 900);
+    } catch (e) {
+      $("scoreStatus").textContent = e.message;
+    }
+  });
+
+  (async function init() {
+    await loadUsers();
+    if (currentUserId) {
+      await loadProgress();
+      await loadScores();
+    }
+  })();
+</script>
+</body>
+</html>

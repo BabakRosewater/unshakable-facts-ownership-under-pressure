@@ -821,3 +821,53 @@ We will verify facts, document proof, set cadence, and protect trust.
 Next update time is ___.”
 
 ---
+
+
+---
+
+---
+
+## Full-Stack UF Training App (Cloudflare Native)
+
+This project now targets a Cloudflare-native architecture:
+- **Cloudflare Pages** serves `index.html`
+- **Cloudflare Pages Functions** serve API routes under `/api/*`
+- **Cloudflare D1** stores users, progress, and score history
+
+### Repository structure
+```
+/
+├─ index.html
+├─ schema.sql
+└─ functions/
+   └─ api/
+      ├─ users.js
+      ├─ progress.js
+      ├─ progress/
+      │  └─ [user_id].js
+      ├─ scores.js
+      └─ scores/
+         └─ [user_id].js
+```
+
+### API routes
+- `GET /api/users`
+- `POST /api/users`
+- `POST /api/progress`
+- `GET /api/progress/:user_id`
+- `POST /api/scores`
+- `GET /api/scores/:user_id`
+
+### Cloudflare setup
+1. Create a D1 database named `uf_training_db`.
+2. Apply schema: `wrangler d1 execute uf_training_db --file=schema.sql`.
+3. Create a Pages project (Framework preset: None, Build command: blank, Output directory: `/`).
+4. Add a Pages Functions D1 binding:
+   - Variable: `DB`
+   - Database: `uf_training_db`
+5. Push to GitHub and let Pages deploy automatically.
+
+### Quick sanity check
+- Open Pages URL, create a user, toggle module completion, add a score.
+- Or test API: `curl -s https://YOUR-PAGES-URL/api/users`
+
